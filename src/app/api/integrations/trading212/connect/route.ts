@@ -2,11 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { encryptCredentials } from "@/lib/crypto";
-import { validateTrading212Credentials } from "@/lib/services/providers/trading212";
 import { syncProviderConnection } from "@/lib/services/sync";
 import {
   ENV_CREDENTIAL_SENTINEL,
-  getTrading212EnvCredentials,
   getTrading212EnvDefaults,
   hasTrading212EnvCredentials,
 } from "@/lib/services/trading212-config";
@@ -46,13 +44,6 @@ export async function POST(request: Request) {
   let credentialsCiphertext: string;
 
   if (useEnv) {
-    const envCreds = getTrading212EnvCredentials()!;
-    try {
-      await validateTrading212Credentials(envCreds, environment);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid credentials";
-      return NextResponse.json({ error: message }, { status: 400 });
-    }
     credentialsCiphertext = ENV_CREDENTIAL_SENTINEL;
   } else {
     const apiKey = parsed.data.apiKey;
@@ -66,13 +57,6 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
-    }
-
-    try {
-      await validateTrading212Credentials({ apiKey, apiSecret }, environment);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid credentials";
-      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     credentialsCiphertext = encryptCredentials({ apiKey, apiSecret });

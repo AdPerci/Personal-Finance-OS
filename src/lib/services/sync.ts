@@ -141,6 +141,14 @@ export async function syncProviderConnection(
 }
 
 export function shouldAutoSync(connection: ProviderConnection): boolean {
+  if (connection.last_sync_status === "pending") return false;
+
+  // Back off after errors to avoid hammering T212 rate limits
+  if (connection.last_sync_status === "error" && connection.updated_at) {
+    const errorAge = Date.now() - new Date(connection.updated_at).getTime();
+    if (errorAge < 5 * 60 * 1000) return false;
+  }
+
   if (!connection.last_synced_at) return true;
   const lastSync = new Date(connection.last_synced_at).getTime();
   const fifteenMinutes = 15 * 60 * 1000;
