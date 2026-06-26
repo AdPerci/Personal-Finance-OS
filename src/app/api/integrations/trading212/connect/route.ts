@@ -4,13 +4,19 @@ import { z } from "zod";
 import { encryptCredentials } from "@/lib/crypto";
 import { validateTrading212Credentials } from "@/lib/services/providers/trading212";
 import { syncProviderConnection } from "@/lib/services/sync";
+import {
+  ENV_CREDENTIAL_SENTINEL,
+  getTrading212EnvCredentials,
+  getTrading212EnvDefaults,
+  hasTrading212EnvCredentials,
+} from "@/lib/services/trading212-config";
 
 const connectSchema = z.object({
-  label: z.string().min(1).max(50),
-  environment: z.enum(["live", "demo"]),
-  subtype: z.enum(["isa", "invest"]),
-  apiKey: z.string().min(1),
-  apiSecret: z.string().min(1),
+  label: z.string().min(1).max(50).optional(),
+  environment: z.enum(["live", "demo"]).optional(),
+  subtype: z.enum(["isa", "invest"]).optional(),
+  apiKey: z.string().min(1).optional(),
+  apiSecret: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -23,23 +29,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const parsed = connectSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { label, environment, subtype, apiKey, apiSecret } = parsed.data;
+  const envDefaults = getTrading212EnvDefaults();
+  const useEnv = hasTrading212EnvCredentials() && !parsed.data.apiKey;
 
-  try {
-    await validateTrading212Credentials({ apiKey, apiSecret }, environment);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid credentials";
-    return NextResponse.json({ error: message }, { status: 400 });
+  const label = parsed.data.label ?? envDefaults.label;
+  const environment = parsed.data.environment ?? envDefaults.environment;
+  const subtype = parsed.data.subtype ?? envDefaults.subtype;
+
+  let credentialsCiphertext: string;
+
+  if (useEnv) {
+    const envCreds = getTrading212EnvCredentials()!;
+    try {
+      await validateTrading212Credentials(envCreds, environment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid credentials";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    credentialsCiphertext = ENV_CREDENTIAL_SENTINEL;
+  } else {
+    const apiKey = parsed.data.apiKey;
+    const apiSecret = parsed.data.apiSecret;
+
+    if (!apiKey || !apiSecret) {
+      return NextResponse.json(
+        {
+          error:
+            "Provide API key and secret, or set TRADING212_API_KEY and TRADING212_SECRET_KEY in environment",
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await validateTrading212Credentials({ apiKey, apiSecret }, environment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid credentials";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    credentialsCiphertext = encryptCredentials({ apiKey, apiSecret });
   }
-
-  const ciphertext = encryptCredentials({ apiKey, apiSecret });
 
   const { data: connection, error } = await supabase
     .from("provider_connections")
@@ -50,7 +87,7 @@ export async function POST(request: Request) {
         label,
         environment,
         subtype,
-        credentials_ciphertext: ciphertext,
+        credentials_ciphertext: credentialsCiphertext,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,provider,label" }
@@ -78,5 +115,5 @@ export async function POST(request: Request) {
     .eq("id", connection.id)
     .single();
 
-  return NextResponse.json({ connection: updated, synced: true });
+  return NextResponse.json({ connection: updated, synced: true, credentialSource: useEnv ? "environment" : "database" });
 }

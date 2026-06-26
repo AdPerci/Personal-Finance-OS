@@ -60,7 +60,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key (`sb_publishable_...`) — recommended |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Legacy anon JWT — works as fallback if publishable key not set |
 | `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Secret/elevated key (optional for MVP) |
-| `CREDENTIALS_ENCRYPTION_KEY` | 64-char hex key for API credential encryption |
+| `CREDENTIALS_ENCRYPTION_KEY` | 64-char hex key (only if storing T212 keys via UI) |
+| `TRADING212_API_KEY` | Trading 212 API key (server-only) |
+| `TRADING212_SECRET_KEY` | Trading 212 API secret (server-only) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` for local dev |
 
 ### 4. Run locally
@@ -73,10 +75,23 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### 5. Connect Trading 212
 
-1. Generate API key in Trading 212 app → Settings → API (Beta)
-2. Go to **Settings → Integrations** in Adam Finance
-3. Enter label, account type (ISA/Invest), environment, API key and secret
-4. Click **Connect & Sync**
+**Option A — environment variables (recommended for personal deployment)**
+
+Add to `.env.local` (server-only, never committed):
+
+```bash
+TRADING212_API_KEY=your-api-key
+TRADING212_SECRET_KEY=your-api-secret
+# Optional: TRADING212_ENVIRONMENT=live|demo
+# Optional: TRADING212_SUBTYPE=isa|invest
+# Optional: TRADING212_LABEL=My ISA
+```
+
+Then go to **Settings → Integrations** and click **Connect & Sync** (no need to enter keys in the UI).
+
+**Option B — per-user encrypted storage**
+
+Enter API key and secret in the integrations form. Credentials are encrypted with `CREDENTIALS_ENCRYPTION_KEY` and stored in Supabase.
 
 > The Trading 212 Public API currently supports **Invest and Stocks ISA only**.
 

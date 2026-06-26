@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { Trading212ConnectForm } from "@/components/integrations/trading212-connect-form";
+import {
+  getTrading212EnvDefaults,
+  hasTrading212EnvCredentials,
+} from "@/lib/services/trading212-config";
 import type { ProviderConnection } from "@/types/database";
 
 export default async function IntegrationsPage() {
@@ -30,6 +34,8 @@ export default async function IntegrationsPage() {
           </p>
         </div>
         <Trading212ConnectForm
+          envConfigured={hasTrading212EnvCredentials()}
+          envDefaults={getTrading212EnvDefaults()}
           connections={(connections ?? []) as Pick<
             ProviderConnection,
             | "id"

@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProviderConnection } from "@/types/database";
-import { decryptCredentials } from "@/lib/crypto";
 import { getProvider } from "./providers/registry";
-import type { Trading212Credentials } from "./providers/types";
+import { resolveTrading212Credentials } from "./trading212-config";
 import { upsertDailySnapshot } from "@/lib/finance/snapshots";
 
 type Supabase = SupabaseClient;
@@ -21,9 +20,7 @@ export async function syncProviderConnection(
     .eq("id", connection.id);
 
   try {
-    const credentials = decryptCredentials<Trading212Credentials>(
-      connection.credentials_ciphertext
-    );
+    const credentials = resolveTrading212Credentials(connection);
     const provider = getProvider(connection.provider);
     const subtype = connection.subtype ?? "invest";
 

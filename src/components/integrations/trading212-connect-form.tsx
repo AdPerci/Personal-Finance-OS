@@ -30,15 +30,27 @@ interface Trading212ConnectFormProps {
     | "last_sync_status"
     | "last_sync_error"
   >[];
+  envConfigured: boolean;
+  envDefaults: {
+    label: string;
+    environment: "live" | "demo";
+    subtype: "isa" | "invest";
+  };
 }
 
-export function Trading212ConnectForm({ connections }: Trading212ConnectFormProps) {
+export function Trading212ConnectForm({
+  connections,
+  envConfigured,
+  envDefaults,
+}: Trading212ConnectFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [label, setLabel] = useState("");
-  const [environment, setEnvironment] = useState<"live" | "demo">("live");
-  const [subtype, setSubtype] = useState<"isa" | "invest">("isa");
+  const [label, setLabel] = useState(envDefaults.label);
+  const [environment, setEnvironment] = useState<"live" | "demo">(
+    envDefaults.environment
+  );
+  const [subtype, setSubtype] = useState<"isa" | "invest">(envDefaults.subtype);
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
 
@@ -46,16 +58,24 @@ export function Trading212ConnectForm({ connections }: Trading212ConnectFormProp
     e.preventDefault();
     setLoading(true);
     try {
+      const payload: Record<string, string> = { label, environment, subtype };
+      if (!envConfigured) {
+        payload.apiKey = apiKey;
+        payload.apiSecret = apiSecret;
+      }
+
       const res = await fetch("/api/integrations/trading212/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, environment, subtype, apiKey, apiSecret }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
       if (!res.ok && res.status !== 207) {
-        throw new Error(data.error ?? "Failed to connect");
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to connect"
+        );
       }
 
       if (data.synced) {
@@ -107,11 +127,17 @@ export function Trading212ConnectForm({ connections }: Trading212ConnectFormProp
         <CardHeader>
           <CardTitle>Connect Trading 212</CardTitle>
           <CardDescription>
-            API keys are encrypted and stored securely. Only Invest and Stocks ISA
-            accounts are supported by the Trading 212 API.
+            {envConfigured
+              ? "API credentials are loaded from server environment variables (TRADING212_API_KEY / TRADING212_SECRET_KEY). Keys are never sent to the browser."
+              : "API keys are encrypted and stored securely. Only Invest and Stocks ISA accounts are supported by the Trading 212 API."}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {envConfigured && (
+            <Badge variant="secondary" className="mb-4">
+              Environment credentials configured
+            </Badge>
+          )}
           <form onSubmit={handleConnect} className="space-y-4 max-w-md">
             <div className="space-y-2">
               <Label htmlFor="t212-label">Account Label</Label>
@@ -152,30 +178,34 @@ export function Trading212ConnectForm({ connections }: Trading212ConnectFormProp
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="t212-key">API Key</Label>
-              <Input
-                id="t212-key"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t212-secret">API Secret</Label>
-              <Input
-                id="t212-secret"
-                type="password"
-                value={apiSecret}
-                onChange={(e) => setApiSecret(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </div>
+            {!envConfigured && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="t212-key">API Key</Label>
+                  <Input
+                    id="t212-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="t212-secret">API Secret</Label>
+                  <Input
+                    id="t212-secret"
+                    type="password"
+                    value={apiSecret}
+                    onChange={(e) => setApiSecret(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </>
+            )}
             <Button type="submit" disabled={loading}>
-              {loading ? "Connecting…" : "Connect & Sync"}
+              {loading ? "Connecting…" : envConfigured ? "Connect & Sync" : "Connect & Sync"}
             </Button>
           </form>
           <p className="mt-4 text-xs text-muted-foreground">
