@@ -57,8 +57,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (optional for MVP) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key (`sb_publishable_...`) — recommended |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Legacy anon JWT — works as fallback if publishable key not set |
+| `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Secret/elevated key (optional for MVP) |
 | `CREDENTIALS_ENCRYPTION_KEY` | 64-char hex key for API credential encryption |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` for local dev |
 
